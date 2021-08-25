@@ -1,0 +1,134 @@
+Sub realizaca_sprzedazy()
+'Na początku program pyta użytkownika o plan sprzedaży i realizację, podane wartości wpisuje w arkuszu o nazwie "Realizacja_sprzedaży" w drugim i trzecim wierszu
+plan = InputBox("Wprowadz plan sprzedaży na dany miesiąc [PLN]")
+Sheets("Realizacja sprzedaży").Cells(2, 1) = "Plan sprzedaży"
+Sheets("Realizacja sprzedaży").Cells(2, 2) = plan
+Realizacja = InputBox("Podaj na jakim poziomie była realizacja sprzedaży w tym miesiącu [PLN]")
+Sheets("Realizacja sprzedaży").Cells(3, 1) = "Realizacja sprzedaży"
+Sheets("Realizacja sprzedaży").Cells(3, 2) = Realizacja
+'Progam liczy na jakim piozmie [%] była realizacja sprzedaży w danym miesiącu a wynik wpisuje w czwartym wierszu
+
+If plan <> 0 Then
+procent_realizacji_sprzedazy = Realizacja / plan
+Else
+procent_realizacji_sprzedazy = 0
+End If
+Sheets("Realizacja sprzedaży").Cells(4, 2) = procent_realizacji_sprzedazy
+
+'zmieniamy format danych i dodajemy skale kolorów, tzn jezeli realizacja jest niższa niż 50% to komórka zostaje wypełniona kolorem czerwonym, jeżeli realizacja jest z przedzialu 50%-100% kolor żółty, a jeżeli >100% kolor zielony
+Range("B2:B3").Select
+Selection.NumberFormat = "#,##0.00"
+Range("B4").Select
+Selection.NumberFormat = "0.00%"
+Range("B4").Select
+
+With Selection.Font
+    .Size = 20
+    .Color = 0
+End With
+
+If procent_realizacji_sprzedazy > 1 Then
+    Range("B4").Select
+    With Selection.Interior
+        .Color = 5287936
+    End With
+Else
+    If procent_realizacji_sprzedazy < 0.5 Then
+    Range("B4").Select
+    With Selection.Interior
+        .Color = 255
+    End With
+    Else
+    Range("B4").Select
+    With Selection.Interior
+        .Color = 65535
+    End With
+    End If
+End If
+
+
+'rysowanie wskaznika ktory bedzie pokazywal na jakim poziomie jest realizacja, wskaznik wygladajacy jak prędkosciomierz
+'wykres bedzie skladal sie z dwoch wykresow: pierscieniowego i kolowego
+'pierwszy wykres pierscienowy bedzie zawieral 5-kolorowa skala, kazdy kolor to kolejne 20% realizacji
+'dane do stworzenia tego pierscienia umieszczone sa w komorkach A9:A14, są to kolejno wartości:0,1; 0,1; 0,1; 0,1; 0,5.
+Dim wskaznik_sprzedaz As ChartObject
+Set wskaznik_sprzedaz = ActiveSheet.ChartObjects.Add(Top:=0, Left:=0, Width:=200, Height:=200)
+With wskaznik_sprzedaz.Chart
+.ChartType = xlDoughnut
+End With
+
+wskaznik_sprzedaz.Chart.SetSourceData Sheets("Realizacja sprzedaży").Range("A9:A14")
+With wskaznik_sprzedaz.Chart.SeriesCollection(1)
+.Points(5).Format.Fill.ForeColor.RGB = RGB(0, 176, 80)
+.Points(4).Format.Fill.ForeColor.RGB = RGB(146, 208, 80)
+.Points(3).Format.Fill.ForeColor.RGB = RGB(255, 255, 0)
+.Points(2).Format.Fill.ForeColor.RGB = RGB(255, 0, 0)
+.Points(1).Format.Fill.ForeColor.RGB = RGB(255, 192, 0)
+.Points(6).Format.Fill.ForeColor.RGB = RGB(255, 255, 255)
+End With
+With wskaznik_sprzedaz.Chart.ChartGroups(1)
+.FirstSliceAngle = 270
+.DoughnutHoleSize = 80
+End With
+'dodajmy wykres kolowy odpowiadajacy za wskazowke, ktoa wraz ze wzrostem procentu realizacji sprzedazy będzie "szla w gore"
+'dane do stworzenia tego wykresu znajduja sie w komorkach B9:B10 i wynosza odpowiednio 0,98; 0,02. Wartosc 0,02 (cale kolo to 1, wskazowka 0,02 kola) odpowiada za szerokosc wskazowki
+With wskaznik_sprzedaz.Chart.SeriesCollection
+.NewSeries.Name = "=""WSK"""
+End With
+
+With wskaznik_sprzedaz.Chart.FullSeriesCollection(2)
+.Values = "='Realizacja sprzedaży'!$B$9:$B$14"
+End With
+'ustalamy kolor wskazowki na czarny, a druga czesc kola bedzie biala
+With wskaznik_sprzedaz.Chart.SeriesCollection(2)
+.Points(1).Format.Fill.ForeColor.RGB = RGB(255, 255, 255)
+.Points(2).Format.Fill.ForeColor.RGB = RGB(0, 0, 0)
+End With
+With wskaznik_sprzedaz.Chart.FullSeriesCollection(2)
+.ChartType = xlPie
+End With
+With wskaznik_sprzedaz.Chart.FullSeriesCollection(1)
+.AxisGroup = 2
+End With
+'ustalamy jak szybko musi poruszac sie wskazowka aby poprawnie pokazywac wartosc procentowa na skali kolorow, jedna cwiartka kola- 90 stopni- odpowiada polowie realizacji, czyli 50%, zatem 1% realizacji to 1,8 stopnia
+'jezeli procent realizacji <50% to jestesmy w pierwszej cwiartce wykresu pierscieniowego, jezeli procent jest >50% i mniejszy od 100% to w drugiej, zaś jeżeli realizacja jest wieksza niz plan ustalamy ze wskaznik zatrzymuje sie na koncu skali kolorow
+If procent_realizacji_sprzedazy < 0.5 Then
+    obrot = 270 + procent_realizacji_sprzedazy * 180
+Else
+    If procent_realizacji_sprzedazy < 1 Then
+        obrot = (procent_realizacji_sprzedazy - 0.5) * 180
+    Else
+        obrot = 100
+    End If
+End If
+With wskaznik_sprzedaz.Chart.ChartGroups(1)
+.FirstSliceAngle = obrot
+End With
+'na koncu ustalmy jeszcze wielkosc wykresu
+With wskaznik_sprzedaz.Chart.ChartArea
+.Width = 100
+.Height = 100
+End With
+With wskaznik_sprzedaz.Chart.ChartArea
+.Format.Fill.Visible = msoFalse
+.Format.Line.Visible = msoFalse
+
+End With
+
+' ustalmy nazwe wykresu i lokalizacje w komroce D2
+With wskaznik_sprzedaz.Chart
+.Legend.Delete
+.Parent.Name = "Wskaznik"
+.Location xlLocationAsObject, "Realizacja sprzedaży"
+End With
+
+With ActiveSheet.Shapes("Wskaznik")
+.Left = Range("D2").Left
+.Top = Range("D2").Top
+End With
+
+
+'jezeli nie chcemy by wartosci potrzebne do narysowania wykresu byly widoczne w arkuszu mozna je usunac
+'Range("A8:B14").Select
+'Selection.Delete
+End Sub
